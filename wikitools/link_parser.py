@@ -1,35 +1,17 @@
 import typing
+from functools import lru_cache
 from urllib import parse
 
 from wikitools import console, reference_parser
 
-
-class Brackets():
-    # Helper class keeping track of when brackets open and close
-    def __init__(self, left: str, right: str):
-        self.left = left
-        self.right = right
-        self.depth = 0
-
-    left: str
-    right: str
-    depth: int
-
-    def closed(self, c: str):
-        if c == self.left:
-            self.depth += 1
-        elif c == self.right:
-            self.depth -= 1
-        if self.depth == 0:
-            return True
-        return False
+_urlparse = lru_cache(maxsize=4096)(parse.urlparse)
 
 
-class State:
-    IDLE = 0
-    START = 1
-    INLINE = 2
-    REFERENCE = 3
+# Not an enum/class to avoid attribute lookups
+_STATE_IDLE = 0  # IDLE: jump to next '[' using optimized str.find
+_STATE_START = 1  # START: tracking bracket depth inline
+_STATE_INLINE = 2  # INLINE: tracking paren depth inline
+_STATE_REFERENCE = 3  # REFERENCE: tracking bracket depth inline
 
 
 class Link(typing.NamedTuple):
@@ -139,93 +121,120 @@ def find_link(s: str, index=0) -> typing.Optional[Link]:
         - [alt_text][reference], with exact locations found separately via find_reference()
     """
 
-    state = State.IDLE
+    state = _STATE_IDLE
 
     start = -1
     location = -1
     extra = None
-    end = None
 
-    parens = Brackets('(', ')')
-    brackets = Brackets('[', ']')
+    bracket_depth = 0
+    paren_depth = 0
 
-    for i in range(index, len(s)):
-        c = s[i]
-        if state == State.IDLE and c == '[':
+    s_len = len(s)
+    i = index
+
+    while i < s_len:
+        if state == _STATE_IDLE:
+            i = s.find('[', i)
+            if i == -1:
+                return None
+
             # potential start of a link
-            brackets.depth += 1
-            state = State.START
+            bracket_depth = 1
+            state = _STATE_START
             start = i
+            i += 1
             continue
 
-        if state == State.START:
-            if brackets.closed(c):
-                if len(s) <= i + 1:
+        c = s[i]
+
+        if state == _STATE_START:
+            if c == '[':
+                bracket_depth += 1
+            elif c == ']':
+                bracket_depth -= 1
+            if bracket_depth == 0:
+                if s_len <= i + 1:
                     # end of the line
-                    state = State.IDLE
+                    state = _STATE_IDLE
+                    i += 1
                     continue
 
                 if s[start + 1] == '^':
                     # found a footnote -> ignore
-                    state = State.IDLE
+                    state = _STATE_IDLE
+                    i += 1
                     continue
 
                 # the end of a bracket. the link may continue
                 # to be inline- or reference-style
                 if s[i + 1] == '(':
-                    state = State.INLINE
+                    state = _STATE_INLINE
                     location = i + 2
+                    paren_depth = 0
                 elif s[i + 1] == '[':
-                    if s[i + 2] == '^':
+                    if i + 2 < s_len and s[i + 2] == '^':
                         # found a footnote after bracket pair -> ignore
-                        state = State.IDLE
+                        state = _STATE_IDLE
+                        i += 1
                         continue
 
-                    state = State.REFERENCE
+                    state = _STATE_REFERENCE
                     location = i + 2
+                    bracket_depth = 0
                 else:
-                    state = State.IDLE
+                    state = _STATE_IDLE
+            i += 1
             continue
 
-        if state == State.INLINE:
+        if state == _STATE_INLINE:
             if c == ' ':
                 if extra is None:
-                    # start of extra part
                     extra = i
 
-            if parens.closed(c):
+            if c == '(':
+                paren_depth += 1
+            elif c == ')':
+                paren_depth -= 1
+            if paren_depth == 0:
                 # end of a complete link
-                end = i
                 if extra is None:
-                    extra = end
+                    extra = i
 
                 raw_location = s[location: extra]
                 return Link(
                     raw_location=raw_location,
-                    parsed_location=parse.urlparse(raw_location),
+                    parsed_location=_urlparse(raw_location),
                     alt_text=s[start + 1: location - 2],
-                    title=s[extra: end],
+                    title=s[extra: i],
                     start=start,
-                    end=end,
+                    end=i,
                     is_reference=False
                 )
+            i += 1
             continue
 
-        if state == State.REFERENCE:
-            if brackets.closed(c):
+        if state == _STATE_REFERENCE:
+            if c == '[':
+                bracket_depth += 1
+            elif c == ']':
+                bracket_depth -= 1
+            if bracket_depth == 0:
                 # end of a complete reference-style link
-                end = i
-                raw_location = s[location: end]
+                raw_location = s[location: i]
                 return Link(
                     raw_location=raw_location,
-                    parsed_location=parse.urlparse(raw_location),
+                    parsed_location=_urlparse(raw_location),
                     alt_text=s[start + 1: location - 2],
                     title="",
                     start=start,
-                    end=end,
+                    end=i,
                     is_reference=True
                 )
+            i += 1
             continue
+
+        i += 1
 
     return None
 
@@ -235,9 +244,11 @@ def find_links(line: str) -> typing.List[Link]:
     Iteratively extract all links from a line.
     """
 
+    if '[' not in line:
+        return []
+
     results = []
-    index = 0
-    match = find_link(line, index)
+    match = find_link(line)
     while match:
         results.append(match)
         match = find_link(line, match.end + 1)
