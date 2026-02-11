@@ -37,19 +37,20 @@ def extract_identifier(
     The burden of checking for the comments and code blocks lies on the caller.
     """
 
-    for i in range(len(s)):
+    s_len = len(s)
+    for i in range(s_len):
         if s[i] == '{':
             # could be an identifier -- check if there are any meaningful prefixes ahead
             id_start = None
             for prefix in ID_PREFIXES:
                 id_start = i + 1 + len(prefix)
-                if id_start >= len(s) or s[i + 1: id_start] != prefix:
+                if id_start >= s_len or s[i + 1: id_start] != prefix:
                     continue
 
                 j = id_start
-                while j < len(s) and s[j] != '}':
+                while j < s_len and s[j] != '}':
                     j += 1
-                if j < len(s) and s[j] == '}':
+                if j < s_len and s[j] == '}':
                     return (s[id_start: j], id_start)
 
     # skip regular lines and article titles (no one refers to them)
@@ -58,7 +59,7 @@ def extract_identifier(
 
     # skip to the actual heading
     j = 0
-    while j < len(s) and s[j] in ('#', ' '):
+    while j < s_len and s[j] in ('#', ' '):
         j += 1
 
     # headings can contain figures or formatting, but ASC disallows the latter.

@@ -46,14 +46,15 @@ class CodeBlockParser:
     def in_multiline(self) -> bool:
         return self.__in_multiline
 
-    def count_tag_length(self, line: str, pos: int) -> int:
+    def count_tag_length(self, line: str, pos: int, line_len: int) -> int:
         tag_len = 0
-        while pos + tag_len < len(line) and line[pos + tag_len] == '`':
+        while pos + tag_len < line_len and line[pos + tag_len] == '`':
             tag_len += 1
         return tag_len
 
     def parse(self, line: str) -> typing.List[CodeBlock]:
         blocks: typing.List[CodeBlock] = []
+        line_len = len(line)
 
         if line.startswith('```'):
             if self.__in_multiline:
@@ -63,7 +64,7 @@ class CodeBlockParser:
                     return [CodeBlock(start=-1, end=-1)]
             else:
                 # opening a multiline block
-                self.__multiline_tag = '`' * self.count_tag_length(line, 0)
+                self.__multiline_tag = '`' * self.count_tag_length(line, 0, line_len)
                 self.__in_multiline = True
                 return [CodeBlock(start=-1, end=-1)]
 
@@ -71,12 +72,12 @@ class CodeBlockParser:
             return [CodeBlock(start=-1, end=-1)]
 
         i = 0
-        while i < len(line):
+        while i < line_len:
             if line[i] != '`':
                 i += 1
                 continue
 
-            tag_len = self.count_tag_length(line, i)
+            tag_len = self.count_tag_length(line, i, line_len)
 
             # the next tag of the same length will close the block
             closing_tag = re.search(

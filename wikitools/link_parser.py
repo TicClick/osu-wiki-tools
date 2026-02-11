@@ -149,7 +149,8 @@ def find_link(s: str, index=0) -> typing.Optional[Link]:
     parens = Brackets('(', ')')
     brackets = Brackets('[', ']')
 
-    for i in range(index, len(s)):
+    s_len = len(s)
+    for i in range(index, s_len):
         c = s[i]
         if state == State.IDLE and c == '[':
             # potential start of a link
@@ -160,7 +161,7 @@ def find_link(s: str, index=0) -> typing.Optional[Link]:
 
         if state == State.START:
             if brackets.closed(c):
-                if len(s) <= i + 1:
+                if s_len <= i + 1:
                     # end of the line
                     state = State.IDLE
                     continue
