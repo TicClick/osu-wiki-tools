@@ -7,7 +7,7 @@ from wikitools import console, reference_parser
 _urlparse = lru_cache(maxsize=4096)(parse.urlparse)
 
 
-# State constants inlined to avoid attribute lookups
+# Not an enum/class to avoid attribute lookups
 _STATE_IDLE = 0  # IDLE: jump to next '[' using optimized str.find
 _STATE_START = 1  # START: tracking bracket depth inline
 _STATE_INLINE = 2  # INLINE: tracking paren depth inline
