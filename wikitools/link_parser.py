@@ -1,7 +1,10 @@
 import typing
+from functools import lru_cache
 from urllib import parse
 
 from wikitools import console, reference_parser
+
+_urlparse = lru_cache(maxsize=4096)(parse.urlparse)
 
 
 class Brackets():
@@ -203,7 +206,7 @@ def find_link(s: str, index=0) -> typing.Optional[Link]:
                 raw_location = s[location: extra]
                 return Link(
                     raw_location=raw_location,
-                    parsed_location=parse.urlparse(raw_location),
+                    parsed_location=_urlparse(raw_location),
                     alt_text=s[start + 1: location - 2],
                     title=s[extra: end],
                     start=start,
@@ -219,7 +222,7 @@ def find_link(s: str, index=0) -> typing.Optional[Link]:
                 raw_location = s[location: end]
                 return Link(
                     raw_location=raw_location,
-                    parsed_location=parse.urlparse(raw_location),
+                    parsed_location=_urlparse(raw_location),
                     alt_text=s[start + 1: location - 2],
                     title="",
                     start=start,
