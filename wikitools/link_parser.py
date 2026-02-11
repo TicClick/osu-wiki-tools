@@ -127,7 +127,6 @@ def find_link(s: str, index=0) -> typing.Optional[Link]:
     location = -1
     extra = None
 
-    # Bracket/paren depth counters inlined to avoid method call overhead
     bracket_depth = 0
     paren_depth = 0
 
