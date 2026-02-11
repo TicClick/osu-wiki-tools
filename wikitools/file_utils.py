@@ -43,7 +43,7 @@ def get_canonical_path_casing(path: pathlib.Path) -> pathlib.Path:
     The path must exist (throws KeyError otherwise)
     """
 
-    return pathlib.Path(file_tree()[normalised(os.path.relpath(path.as_posix()).lower())])
+    return pathlib.Path(file_tree()[normalised(path.as_posix()).lower()])
 
 
 def exists_case_sensitive(path: pathlib.Path) -> bool:
@@ -71,7 +71,7 @@ def exists_case_insensitive(path: pathlib.Path) -> bool:
     else:
         # case-insensitive directory/file existence checking isn't trivial in case-sensitive file systems because os-provided existence checks can't be relied upon
 
-        return normalised(os.path.relpath(path.as_posix()).lower()) in file_tree()
+        return normalised(path.as_posix()).lower() in file_tree()
 
 
 def is_newspost(path: str) -> bool:
